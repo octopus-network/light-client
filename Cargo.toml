@@ -1,0 +1,3 @@
+[workspace]
+members = ["algorithms/beefy/primitives", "algorithms/beefy/prover", "algorithms/beefy/verifier", "common", "ics11-beefy"]
+resolver = "2"
