@@ -56,11 +56,11 @@ pub struct ParachainHeadersWithProof {
     pub leaf_count: u64,               // The mmr leaf count when the proof was generated
 }
 
-impl ibc::core::ics02_client::client_message::ClientMessage for ClientMessage {
-    fn encode_to_vec(&self) -> Result<Vec<u8>, tendermint_proto::Error> {
-        self.encode_vec()
-    }
-}
+// impl ibc::core::ics02_client::client_message::ClientMessage for ClientMessage {
+//     fn encode_to_vec(&self) -> Result<Vec<u8>, tendermint_proto::Error> {
+//         self.encode_vec()
+//     }
+// }
 
 #[derive(Clone, PartialEq, Eq, Debug, codec::Encode, codec::Decode)]
 pub struct ParachainHeader {

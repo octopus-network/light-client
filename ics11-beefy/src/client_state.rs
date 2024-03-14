@@ -9,11 +9,30 @@ use tendermint_proto::Protobuf;
 
 use crate::proto::{BeefyAuthoritySet, ClientState as RawClientState};
 
-use crate::{client_message::BeefyHeader, error::Error};
-
-use crate::client_def::BeefyClient;
+use crate::client_message::BeefyHeader;
+use crate::error::Error;
+use ibc::core::ics02_client::context::ClientReader;
+// use crate::client_def::BeefyClient;
+use ibc::core::ics02_client::client_state::ClientState as Ics02ClientState;
 use ibc::core::ics02_client::client_type::ClientType;
+use ibc::core::ics02_client::consensus_state::ConsensusState;
+use ibc::core::ics02_client::error::ClientError;
+use ibc::core::ics03_connection::connection::ConnectionEnd;
+use ibc::core::ics04_channel::channel::ChannelEnd;
+use ibc::core::ics04_channel::commitment::AcknowledgementCommitment;
+use ibc::core::ics04_channel::commitment::PacketCommitment;
+use ibc::core::ics04_channel::context::ChannelReader;
+use ibc::core::ics04_channel::packet::Sequence;
+use ibc::core::ics23_commitment::commitment::CommitmentPrefix;
+use ibc::core::ics23_commitment::commitment::CommitmentProofBytes;
+use ibc::core::ics23_commitment::commitment::CommitmentRoot;
+use ibc::core::ics23_commitment::merkle::MerkleProof;
+use ibc::core::ics24_host::identifier::ChannelId;
+use ibc::core::ics24_host::identifier::ClientId;
+use ibc::core::ics24_host::identifier::ConnectionId;
+use ibc::core::ics24_host::identifier::PortId;
 use ibc::{core::ics24_host::identifier::ChainId, timestamp::Timestamp, Height};
+use ibc_proto::google::protobuf::Any;
 use light_client_common::RelayChain;
 
 /// Protobuf type url for Beefy ClientState
@@ -257,7 +276,7 @@ where
         ctx: &dyn ClientReader,
         client_id: ClientId,
         misbehaviour: Any,
-    ) -> Result<Box<dyn ClientState>, ClientError> {
+    ) -> Result<Box<dyn Ics02ClientState>, ClientError> {
         todo!()
     }
 
@@ -422,32 +441,8 @@ where
     }
 }
 
-// Implements `Clone` for `Box<dyn ClientState>`
-dyn_clone::clone_trait_object!(ClientState);
-
-// Implements `serde::Serialize` for all types that have ClientState as supertrait
-#[cfg(feature = "serde")]
-erased_serde::serialize_trait_object!(ClientState);
-
-impl PartialEq for dyn ClientState {
-    fn eq(&self, other: &Self) -> bool {
-        self.eq_client_state(other)
-    }
-}
-
-// see https://github.com/rust-lang/rust/issues/31740
-impl PartialEq<&Self> for Box<dyn ClientState> {
-    fn eq(&self, other: &&Self) -> bool {
-        self.eq_client_state(other.as_ref())
-    }
-}
-
-pub fn downcast_client_state<CS: ClientState>(h: &dyn ClientState) -> Option<&CS> {
-    h.as_any().downcast_ref::<CS>()
-}
-
 pub struct UpdatedState {
-    pub client_state: Box<dyn ClientState>,
+    pub client_state: Box<dyn Ics02ClientState>,
     pub consensus_state: Box<dyn ConsensusState>,
 }
 
@@ -455,14 +450,14 @@ mod sealed {
     use super::*;
 
     pub trait ErasedPartialEqClientState {
-        fn eq_client_state(&self, other: &dyn ClientState) -> bool;
+        fn eq_client_state(&self, other: &dyn Ics02ClientState) -> bool;
     }
 
     impl<CS> ErasedPartialEqClientState for CS
     where
-        CS: ClientState + PartialEq,
+        CS: Ics02ClientState + PartialEq,
     {
-        fn eq_client_state(&self, other: &dyn ClientState) -> bool {
+        fn eq_client_state(&self, other: &dyn Ics02ClientState) -> bool {
             other
                 .as_any()
                 .downcast_ref::<CS>()
@@ -481,7 +476,7 @@ impl<H> TryFrom<RawClientState> for ClientState<H> {
                 Some(BeefyNextAuthoritySet {
                     id: set.id,
                     len: set.len,
-                    root: H256::decode(&mut &*set.authority_root).ok()?,
+                    keyset_commitment: H256::decode(&mut &*set.authority_root).ok()?,
                 })
             })
             .ok_or_else(|| Error::Custom(format!("Current authority set is missing")))?;
@@ -492,7 +487,7 @@ impl<H> TryFrom<RawClientState> for ClientState<H> {
                 Some(BeefyNextAuthoritySet {
                     id: set.id,
                     len: set.len,
-                    root: H256::decode(&mut &*set.authority_root).ok()?,
+                    keyset_commitment: H256::decode(&mut &*set.authority_root).ok()?,
                 })
             })
             .ok_or_else(|| Error::Custom(format!("Next authority set is missing")))?;

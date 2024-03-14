@@ -6,7 +6,7 @@
 extern crate alloc;
 extern crate core;
 
-pub mod client_def;
+// pub mod client_def;
 pub mod client_message;
 pub mod client_state;
 pub mod consensus_state;

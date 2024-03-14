@@ -2915,6 +2915,7 @@ dependencies = [
  "beefy-prover",
  "bytes",
  "derive_more",
+ "dyn-clone",
  "frame-support",
  "futures",
  "ibc",
